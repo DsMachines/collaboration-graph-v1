@@ -640,21 +640,23 @@
 
         const options = {
             physics: {
-                barnesHut: {
-                    gravitationalConstant: -12000,
-                    centralGravity: 0.35,
-                    springLength: 200,
-                    springConstant: 0.02,
-                    damping: 0.3,
-                    avoidOverlap: 0.5
+                forceAtlas2Based: {
+                    gravitationalConstant: -100,
+                    centralGravity: 0.015,
+                    springConstant: 0.08,
+                    springLength: 150,
+                    damping: 0.4,
+                    avoidOverlap: 1
                 },
+                solver: 'forceAtlas2Based',
                 stabilization: {
                     enabled: true,
-                    iterations: 300,
+                    iterations: 150, // Reduced for faster initial load
                     updateInterval: 25
                 },
-                maxVelocity: 50,
-                minVelocity: 0.5
+                maxVelocity: 40,
+                minVelocity: 0.75,
+                timestep: 0.4 // Throttles calculations for iFrame smoothness
             },
             interaction: {
                 hover: true,
