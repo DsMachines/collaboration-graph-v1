@@ -1,15 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Collaboration Course - Knowledge Graph</title>
+    <title>Collaboration Course - Knowledge Graph (Interactive)</title>
     <script src="https://unpkg.com/vis-network@9/standalone/umd/vis-network.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', sans-serif; background: #0a0f1e; color: #e2e8f0; height: 100vh; overflow: hidden; }
-        
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0a0f1e;
+            color: #e2e8f0;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ---- LAYOUT ---- */
         .app {
             display: grid;
             grid-template-columns: 280px 1fr;
@@ -17,8 +31,12 @@
             height: 100vh;
             transition: grid-template-columns 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .app.sidebar-collapsed { grid-template-columns: 0px 1fr; }
 
+        .app.sidebar-collapsed {
+            grid-template-columns: 0px 1fr;
+        }
+
+        /* ---- TOP BAR ---- */
         .topbar {
             grid-column: 1 / -1;
             background: rgba(15, 23, 42, 0.95);
@@ -27,235 +45,1024 @@
             align-items: center;
             justify-content: space-between;
             padding: 10px 24px 0 24px;
+            /* Added 10px top padding */
             gap: 16px;
             z-index: 10;
         }
+
         .topbar-title {
             font-size: 1rem;
             font-weight: 700;
             white-space: nowrap;
             background: linear-gradient(135deg, #ef4444, #3b82f6, #22c55e);
-            background-clip: text;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
-        .topbar-controls { display: flex; gap: 8px; align-items: center; }
-        .topbar-controls input {
-            background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(100, 116, 139, 0.3);
-            color: #e2e8f0; padding: 6px 14px; border-radius: 8px; outline: none; width: 180px;
+
+        .topbar-controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
         }
+
+        .topbar-controls input[type="text"] {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid rgba(100, 116, 139, 0.3);
+            color: #e2e8f0;
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-family: 'Inter', sans-serif;
+            width: 200px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .topbar-controls input[type="text"]:focus {
+            border-color: #f59e0b;
+        }
+
         .btn {
-            background: rgba(100, 116, 139, 0.2); border: 1px solid rgba(100, 116, 139, 0.3);
-            color: #94a3b8; padding: 6px 14px; border-radius: 8px; font-size: 0.75rem; cursor: pointer; transition: all 0.2s;
+            background: rgba(100, 116, 139, 0.2);
+            border: 1px solid rgba(100, 116, 139, 0.3);
+            color: #94a3b8;
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-family: 'Inter', sans-serif;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
         }
-        .btn:hover { background: rgba(100, 116, 139, 0.35); color: #e2e8f0; }
-        .btn.active { color: #f59e0b; border-color: #f59e0b; background: rgba(245, 158, 11, 0.1); }
-        .btn.cluster-btn { color: #c084fc; border-color: rgba(168, 85, 247, 0.4); }
 
+        .btn:hover {
+            background: rgba(100, 116, 139, 0.35);
+            color: #e2e8f0;
+        }
+
+        .btn.active {
+            background: rgba(245, 158, 11, 0.2);
+            border-color: #f59e0b;
+            color: #f59e0b;
+        }
+
+        .btn.cluster-btn {
+            background: rgba(168, 85, 247, 0.15);
+            border-color: rgba(168, 85, 247, 0.4);
+            color: #c084fc;
+        }
+
+        .btn.cluster-btn:hover {
+            background: rgba(168, 85, 247, 0.3);
+        }
+
+        /* ---- SIDEBAR ---- */
         .sidebar {
-            background: rgba(15, 23, 42, 0.9); border-right: 1px solid rgba(100, 116, 139, 0.15);
-            overflow-y: auto; padding: 16px; transition: all 0.4s ease; width: 280px; opacity: 1;
+            background: rgba(15, 23, 42, 0.9);
+            border-right: 1px solid rgba(100, 116, 139, 0.15);
+            overflow-y: auto;
+            padding: 16px;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            width: 280px;
+            opacity: 1;
         }
-        .sidebar-collapsed .sidebar { width: 0; opacity: 0; padding: 0; pointer-events: none; border: none; }
-        .sidebar h3 { font-size: 0.7rem; text-transform: uppercase; color: #64748b; margin: 15px 0 10px; border-bottom: 1px solid rgba(100, 116, 139, 0.1); padding-bottom: 5px; }
-        .legend-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 0.8rem; color: #94a3b8; cursor: pointer; }
-        .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
 
-        .info-panel { margin-top: 20px; padding: 15px; background: rgba(30, 41, 59, 0.5); border-radius: 12px; display: none; }
-        .info-panel.visible { display: block; }
+        .sidebar-collapsed .sidebar {
+            width: 0;
+            padding-left: 0;
+            padding-right: 0;
+            opacity: 0;
+            border-right-color: transparent;
+            pointer-events: none;
+        }
 
-        #graph-container { position: relative; background: #0f172a; overflow: hidden; }
-        #network-canvas { width: 100%; height: 100%; position: absolute; }
-        
-        .stats-bar { position: absolute; top: 15px; right: 20px; display: flex; gap: 10px; }
-        .stat-badge { background: rgba(15, 23, 42, 0.6); padding: 4px 12px; border-radius: 20px; font-size: 0.7rem; color: #64748b; border: 1px solid rgba(100,116,139,0.2); }
+        .sidebar h3 {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #64748b;
+            margin-bottom: 10px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid rgba(100, 116, 139, 0.15);
+        }
+
+        .legend-section {
+            margin-bottom: 20px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 8px;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            color: #94a3b8;
+            cursor: pointer;
+            transition: background 0.15s;
+            margin-bottom: 2px;
+        }
+
+        .legend-item:hover {
+            background: rgba(100, 116, 139, 0.15);
+        }
+
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .shape-icon {
+            width: 12px;
+            height: 12px;
+            flex-shrink: 0;
+        }
+
+        /* ---- INFO PANEL (selected node) ---- */
+        .info-panel {
+            margin-top: 16px;
+            padding: 14px;
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(100, 116, 139, 0.2);
+            border-radius: 10px;
+            display: none;
+        }
+
+        .info-panel.visible {
+            display: block;
+        }
+
+        .info-panel h4 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+            line-height: 1.3;
+        }
+
+        .info-meta {
+            font-size: 0.7rem;
+            color: #64748b;
+            margin-bottom: 8px;
+        }
+
+        .info-desc {
+            font-size: 0.8rem;
+            line-height: 1.5;
+            color: #cbd5e1;
+        }
+
+        .info-connections {
+            margin-top: 10px;
+            font-size: 0.72rem;
+            color: #64748b;
+        }
+
+        .info-connections a {
+            color: #f59e0b;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .info-connections a:hover {
+            text-decoration: underline;
+        }
+
+        /* ---- GRAPH AREA ---- */
+        #graph-container {
+            position: relative;
+            background: #0f172a;
+            overflow: hidden;
+            min-height: 0;
+        }
+
+        #network-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* ---- ZOOM HINT ---- */
+        .zoom-hint {
+            position: absolute;
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(100, 116, 139, 0.2);
+            padding: 8px 18px;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            color: #64748b;
+            pointer-events: none;
+            z-index: 5;
+            opacity: 1;
+            transition: opacity 0.5s;
+        }
+
+        .zoom-hint.hidden {
+            opacity: 0;
+        }
+
+        /* ---- NODE COUNT BADGE ---- */
+        .stats-bar {
+            position: absolute;
+            top: 12px;
+            right: 16px;
+            display: flex;
+            gap: 12px;
+            z-index: 5;
+        }
+
+        .stat-badge {
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid rgba(100, 116, 139, 0.2);
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            color: #64748b;
+        }
+
+        .stat-badge strong {
+            color: #f59e0b;
+        }
     </style>
 </head>
+
 <body>
+
     <div class="app">
+        <!-- TOP BAR -->
         <div class="topbar">
             <div style="display: flex; align-items: center; gap: 15px;">
-                <button class="btn" onclick="toggleSidebar()" title="Toggle Sidebar">☰</button>
+                <button class="btn" style="padding: 8px; display: flex; align-items: center; justify-content: center;"
+                    onclick="toggleSidebar()" title="Toggle Legend Sidebar">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
+                </button>
                 <div class="topbar-title">Collaboration Course - Knowledge Graph</div>
             </div>
             <div class="topbar-controls">
-                <input type="text" id="search-input" placeholder="Search..." oninput="searchNodes(this.value)">
+                <input type="text" id="search-input" placeholder="Search concepts..." oninput="searchNodes(this.value)">
                 <button class="btn active" onclick="filterBy('all', this)">All</button>
                 <button class="btn" onclick="filterBy('A', this)">Book A</button>
                 <button class="btn" onclick="filterBy('B', this)">Book B</button>
                 <button class="btn" onclick="filterBy('C', this)">Book C</button>
-                <button class="btn cluster-btn" id="cluster-toggle" onclick="toggleClustering()">Cluster by Book</button>
-                <button class="btn" onclick="network.fit({animation:true})">Fit</button>
+                <button class="btn" onclick="filterBy('cross', this)">Cross-links</button>
+                <span style="width:1px;height:24px;background:rgba(100,116,139,0.3);margin:0 4px;"></span>
+                <button class="btn cluster-btn" id="cluster-toggle" onclick="toggleClustering()">Cluster by
+                    Book</button>
+                <button class="btn" onclick="network.fit({animation:true})">Fit View</button>
             </div>
         </div>
 
+        <!-- SIDEBAR -->
         <div class="sidebar">
-            <h3>Books</h3>
-            <div class="legend-item" onclick="filterBy('A',null)"><div class="legend-dot" style="background:#ef4444"></div> Book A</div>
-            <div class="legend-item" onclick="filterBy('B',null)"><div class="legend-dot" style="background:#3b82f6"></div> Book B</div>
-            <div class="legend-item" onclick="filterBy('C',null)"><div class="legend-dot" style="background:#22c55e"></div> Book C</div>
-            <div class="legend-item" onclick="filterBy('cross',null)"><div class="legend-dot" style="background:#f59e0b"></div> Cross-links</div>
-            
+            <div class="legend-section">
+                <h3>Books (Color)</h3>
+                <div class="legend-item" onclick="filterBy('A',null)">
+                    <div class="legend-dot" style="background:#ef4444"></div>
+                    A: Collaborating with the Enemy
+                </div>
+                <div class="legend-item" onclick="filterBy('B',null)">
+                    <div class="legend-dot" style="background:#3b82f6"></div>
+                    B: Facilitating Breakthrough
+                </div>
+                <div class="legend-item" onclick="filterBy('C',null)">
+                    <div class="legend-dot" style="background:#22c55e"></div>
+                    C: U-Lab / Theory U
+                </div>
+                <div class="legend-item" onclick="filterBy('cross',null)">
+                    <div class="legend-dot" style="background:#f59e0b"></div>
+                    Cross-book links
+                </div>
+            </div>
+
+            <div class="legend-section">
+                <h3>Categories (Shape)</h3>
+                <div class="legend-item"><span style="color:#94a3b8">&#9679;</span>&nbsp; Principle</div>
+                <div class="legend-item"><span style="color:#94a3b8">&#9670;</span>&nbsp; Mindset</div>
+                <div class="legend-item"><span style="color:#94a3b8">&#9650;</span>&nbsp; Process Step</div>
+                <div class="legend-item"><span style="color:#94a3b8">&#9632;</span>&nbsp; Tool</div>
+                <div class="legend-item"><span style="color:#94a3b8">&#9733;</span>&nbsp; Exercise</div>
+            </div>
+
+            <div class="legend-section">
+                <h3>Interactions</h3>
+                <div style="font-size:0.72rem; color:#64748b; line-height:1.7; padding: 0 4px;">
+                    <b style="color:#c084fc">Cluster by Book</b> — groups nodes into collapsible super-nodes. Click a
+                    cluster to
+                    expand it.<br><br>
+                    <b>Scroll</b> — zoom in/out<br>
+                    <b>Click node</b> — see details<br>
+                    <b>Double-click</b> — zoom to node<br>
+                    <b>Drag</b> — move nodes<br>
+                    <b>Search</b> — highlights matches
+                </div>
+            </div>
+
+            <!-- Info Panel -->
             <div class="info-panel" id="info-panel">
-                <h4 id="info-title" style="margin-bottom:8px"></h4>
-                <p id="info-meta" style="font-size:0.75rem; color:#64748b; margin-bottom:10px"></p>
-                <p id="info-desc" style="font-size:0.85rem; line-height:1.5"></p>
-                <div id="info-connections" style="margin-top:15px; font-size:0.8rem; color:#f59e0b"></div>
+                <h4 id="info-title"></h4>
+                <div class="info-meta" id="info-meta"></div>
+                <div class="info-desc" id="info-desc"></div>
+                <div class="info-connections" id="info-connections"></div>
             </div>
         </div>
 
+        <!-- GRAPH -->
         <div id="graph-container">
             <div id="network-canvas"></div>
+            <div class="zoom-hint" id="zoom-hint">Scroll to zoom &bull; Click node for details &bull; Double-click to
+                focus
+                &bull; Try "Cluster by Book"</div>
             <div class="stats-bar">
-                <div class="stat-badge"><strong id="stat-nodes">61</strong> nodes</div>
-                <div class="stat-badge"><strong id="stat-edges">76</strong> links</div>
+                <div class="stat-badge"><strong id="stat-nodes">61</strong> concepts</div>
+                <div class="stat-badge"><strong id="stat-edges">76</strong> connections</div>
             </div>
         </div>
     </div>
 
     <script>
-        const nodes = [
-            { id: "enemyfying", label: "Enemyfying", cat: "mindset", book: "A", ch: "Ch 7", desc: "Tendency to see others as enemies." },
-            { id: "stretch_collab", label: "Stretch\nCollaboration", cat: "principle", book: "A", ch: "Ch 4", desc: "Working with people you don't agree with." },
-            { id: "power_vs_love", label: "Power vs Love", cat: "principle", book: "A", ch: "Ch 5", desc: "Balancing two fundamental drives." },
-            { id: "exit_adapt_force", label: "Exit / Adapt\n/ Force", cat: "mindset", book: "A", ch: "Ch 2", desc: "Three conventional responses to conflict." },
-            { id: "scapegoating", label: "Scapegoating", cat: "mindset", book: "A", ch: "Ch 7", desc: "Projecting blame onto others." },
-            { id: "asserting_engaging", label: "Asserting &\nEngaging", cat: "tool", book: "A", ch: "Ch 5", desc: "Expressing power while engaging others." },
-            { id: "downloading_a", label: "Downloading", cat: "process_step", book: "A", ch: "Intro", desc: "Listening from habit." },
-            { id: "debating", label: "Debating", cat: "process_step", book: "A", ch: "Intro", desc: "Listening to find differences." },
-            { id: "dialoguing_a", label: "Dialoguing", cat: "process_step", book: "A", ch: "Intro", desc: "Empathic listening." },
-            { id: "presencing_a", label: "Presencing", cat: "process_step", book: "A", ch: "Intro", desc: "Generative listening." },
-            { id: "holon", label: "Holon", cat: "principle", book: "A", ch: "Ch 5", desc: "Being both a part and a whole." },
-            { id: "step_into_game", label: "Step Into\nthe Game", cat: "principle", book: "A", ch: "Ch 7", desc: "Taking responsibility." },
-            { id: "experimentation_a", label: "Experimentation", cat: "process_step", book: "A", ch: "Ch 6", desc: "Trial and error progress." },
-            { id: "week_program", label: "6-Week Program", cat: "exercise", book: "A", ch: "End", desc: "Practice program." },
+        // ============================================================
+        // GRAPH DATA
+        // ============================================================
+        const BOOK_NAMES = {
+            'A': 'Collaborating with the Enemy',
+            'B': 'Facilitating Breakthrough',
+            'C': 'U-Lab / Theory U'
+        };
 
-            // Book B
-            { id: "transformative_facilitation", label: "Transformative\nFacilitation", cat: "principle", book: "B", ch: "Core", desc: "Facilitation that removes obstacles." },
-            { id: "removing_obstacles", label: "Removing\nObstacles", cat: "principle", book: "B", ch: "Core", desc: "Removing what blocks a group." },
-            { id: "contribution", label: "Contribution", cat: "principle", book: "B", ch: "Core", desc: "Bringing skills and resources." },
-            { id: "connection", label: "Connection", cat: "principle", book: "B", ch: "Core", desc: "Knowing each other as peers." },
-            { id: "equity", label: "Equity", cat: "principle", book: "B", ch: "Core", desc: "Inclusivity and fairness." },
-            { id: "vertical_facilitation", label: "Vertical", cat: "tool", book: "B", ch: "Ch 2", desc: "Conventional directing." },
-            { id: "horizontal_facilitation", label: "Horizontal", cat: "tool", book: "B", ch: "Ch 2", desc: "Conventional accompanying." },
-            { id: "ten_moves", label: "Ten Moves", cat: "tool", book: "B", ch: "Ch 4", desc: "Five pairs of outer moves." },
-            { id: "advocating_inquiring", label: "Advocating &\nInquiring", cat: "tool", book: "B", ch: "Ch 6", desc: "Balancing stating and asking." },
-            { id: "concluding_advancing", label: "Concluding &\nAdvancing", cat: "tool", book: "B", ch: "Ch 7", desc: "Balancing closure and progress." },
-            { id: "mapping_discovering", label: "Mapping &\nDiscovering", cat: "tool", book: "B", ch: "Ch 8", desc: "Balancing planning and finding." },
-            { id: "directing_accompanying", label: "Directing &\nAccompanying", cat: "tool", book: "B", ch: "Ch 9", desc: "Balancing control and support." },
-            { id: "outside_inside", label: "Outside/Inside", cat: "tool", book: "B", ch: "Ch 10", desc: "Balancing perspective and involvement." },
-            { id: "diverging_emerging_converging", label: "Diverge/Emerge\n/Converge", cat: "process_step", book: "B", ch: "Ch 7", desc: "Creative process phases." },
-            { id: "negative_capability", label: "Negative\nCapability", cat: "mindset", book: "B", ch: "Ch 7", desc: "Staying in uncertainty." },
-            { id: "power_love_justice", label: "Power, Love\n& Justice", cat: "principle", book: "B", ch: "End", desc: "Structural drives." },
-            { id: "incompleteness", label: "Incompleteness", cat: "mindset", book: "B", ch: "Core", desc: "Starting imperfect." },
-            { id: "imperfection", label: "Imperfection", cat: "mindset", book: "B", ch: "Core", desc: "Working with what you have." },
-            { id: "social_labs", label: "Social Labs", cat: "tool", book: "B", ch: "Method", desc: "Multi-stakeholder platforms." },
-            { id: "scenario_planning", label: "Scenario\nPlanning", cat: "tool", book: "B", ch: "Method", desc: "Preparing for futures." },
-            { id: "dissent_as_fuel", label: "Dissent as Fuel", cat: "principle", book: "B", ch: "Method", desc: "Conflict as a resource." },
+        const BOOK_COLORS = { 'A': '#ef4444', 'B': '#3b82f6', 'C': '#22c55e' };
 
-            // Book C
-            { id: "theory_u", label: "Theory U", cat: "principle", book: "C", ch: "M1", desc: "Learning from the future." },
-            { id: "iceberg_model", label: "Iceberg", cat: "principle", book: "C", ch: "M1", desc: "Root causes framework." },
-            { id: "downloading_c", label: "Downloading", cat: "process_step", book: "C", ch: "M1", desc: "Habitual listening." },
-            { id: "seeing", label: "Seeing", cat: "process_step", book: "C", ch: "M1", desc: "Factual listening." },
-            { id: "sensing", label: "Sensing", cat: "process_step", book: "C", ch: "M2", desc: "Empathic listening." },
-            { id: "presencing_c", label: "Presencing", cat: "process_step", book: "C", ch: "M3", desc: "Generative listening." },
-            { id: "crystallizing", label: "Crystallizing", cat: "process_step", book: "C", ch: "M3", desc: "Vision from source." },
-            { id: "prototyping_c", label: "Prototyping", cat: "process_step", book: "C", ch: "M4", desc: "Testing the future." },
-            { id: "co_evolving", label: "Co-Evolving", cat: "process_step", book: "C", ch: "M5", desc: "Iterating the ecosystem." },
-            { id: "co_initiating", label: "Co-Initiating", cat: "process_step", book: "C", ch: "M1", desc: "Common intention." },
-            { id: "co_sensing", label: "Co-Sensing", cat: "process_step", book: "C", ch: "M2", desc: "Learning together." },
-            { id: "co_creating", label: "Co-Creating", cat: "process_step", book: "C", ch: "M4", desc: "Prototyping together." },
-            { id: "absencing", label: "Absencing", cat: "mindset", book: "C", ch: "M3", desc: "Inverse of Presencing." },
-            { id: "voj", label: "Voice of\nJudgment", cat: "mindset", book: "C", ch: "M1", desc: "Blocks seeing." },
-            { id: "voc", label: "Voice of\nCynicism", cat: "mindset", book: "C", ch: "M2", desc: "Blocks sensing." },
-            { id: "vof", label: "Voice of\nFear", cat: "mindset", book: "C", ch: "M3", desc: "Blocks open will." },
-            { id: "four_listening", label: "4 Levels of\nListening", cat: "tool", book: "C", ch: "M1", desc: "Evolution of listening." },
-            { id: "case_clinic", label: "Case Clinic", cat: "tool", book: "C", ch: "M1", desc: "Peer coaching." },
-            { id: "empathy_walk", label: "Empathy Walk", cat: "tool", book: "C", ch: "M1", desc: "Immersive empathy." },
-            { id: "sensing_journey", label: "Sensing Journey", cat: "tool", book: "C", ch: "M2", desc: "Edge system visits." },
-            { id: "stakeholder_int", label: "Stakeholder\nInterviews", cat: "tool", book: "C", ch: "M2", desc: "Seeing from outside." },
-            { id: "spt", label: "Social\nPresencing", cat: "tool", book: "C", ch: "M2", desc: "Body awareness theater." },
-            { id: "three_d_mapping", label: "3D Mapping", cat: "tool", book: "C", ch: "M4", desc: "System modeling." },
-            { id: "journaling", label: "Journaling", cat: "tool", book: "C", ch: "M3", desc: "Reflective practice." },
-            { id: "ego_to_eco", label: "Ego to Eco", cat: "principle", book: "C", ch: "M1", desc: "Shift in awareness." },
-            { id: "distractions", label: "4 Distractions", cat: "mindset", book: "C", ch: "M5", desc: "Losing presence factors." },
+        const CATEGORY_SHAPES = {
+            'mindset': 'diamond',
+            'principle': 'dot',
+            'process_step': 'triangleDown',
+            'tool': 'square',
+            'exercise': 'star'
+        };
+
+        const rawNodes = [
+            // BOOK A
+            { id: "enemyfying", label: "Enemyfying", cat: "mindset", book: "A", ch: "Ch 7", desc: "The tendency to see others as enemies, reducing them to one-dimensional villains. A key barrier to collaboration." },
+            { id: "stretch_collab", label: "Stretch\nCollaboration", cat: "principle", book: "A", ch: "Ch 4", desc: "Working with people you don't agree with, like, or trust. Requires embracing conflict and connection simultaneously." },
+            { id: "power_vs_love", label: "Power vs Love", cat: "principle", book: "A", ch: "Ch 5", desc: "Two fundamental drives: power (self-realization) and love (reunification). Both must be balanced for effective collaboration." },
+            { id: "exit_adapt_force", label: "Exit / Adapt\n/ Force", cat: "mindset", book: "A", ch: "Ch 2", desc: "Three conventional responses to situations we can't control. Stretch collaboration offers a fourth option." },
+            { id: "scapegoating", label: "Scapegoating\n(Girard)", cat: "mindset", book: "A", ch: "Ch 7", desc: "Projecting blame onto others. Rooted in Rene Girard's theory of mimetic desire and sacrificial mechanisms." },
+            { id: "asserting_engaging", label: "Asserting &\nEngaging", cat: "tool", book: "A", ch: "Ch 5", desc: "The dual practice of expressing your own power while genuinely engaging with others' perspectives." },
+            { id: "downloading_a", label: "Downloading\n(Intro)", cat: "process_step", book: "A", ch: "Summary", desc: "Listening from habit, confirming what you already know. The lowest level of listening from Theory U." },
+            { id: "debating", label: "Debating", cat: "process_step", book: "A", ch: "Summary", desc: "Factual listening where you notice differences. The second conversational field." },
+            { id: "dialoguing_a", label: "Dialoguing", cat: "process_step", book: "A", ch: "Summary", desc: "Empathic listening where you see through another's eyes. The third conversational field." },
+            { id: "presencing_a", label: "Presencing\n(Intro)", cat: "process_step", book: "A", ch: "Summary", desc: "Generative listening connected to the emerging future. Introduced in Book A, fully developed in U-Lab." },
+            { id: "holon", label: "Holon\n(Multiple Wholes)", cat: "principle", book: "A", ch: "Ch 5", desc: "Each participant is both a whole and a part of a larger whole. Collaboration requires recognizing this duality." },
+            { id: "step_into_game", label: "Step Into\nthe Game", cat: "principle", book: "A", ch: "Ch 7", desc: "Moving from spectator to participant. Taking responsibility for the situation rather than blaming others." },
+            { id: "experimentation_a", label: "Experimentation", cat: "process_step", book: "A", ch: "Ch 6", desc: "Trial and error as the path forward. You can't predict outcomes in complex situations; you must experiment." },
+            { id: "week_program", label: "6-Week Practice\nProgram", cat: "exercise", book: "A", ch: "Conclusion", desc: "Structured personal practice program for developing stretch collaboration skills." },
+
+            // BOOK B
+            { id: "transformative_facilitation", label: "Transformative\nFacilitation", cat: "principle", book: "B", ch: "Core", desc: "An unconventional approach that cycles between vertical and horizontal facilitation to remove obstacles." },
+            { id: "removing_obstacles", label: "Removing\nObstacles", cat: "principle", book: "B", ch: "Intro", desc: "The essence of transformative facilitation: not pushing groups forward but removing what blocks them." },
+            { id: "contribution", label: "Contribution", cat: "principle", book: "B", ch: "Intro", desc: "Enabling diverse participants to bring their ideas, skills and resources to bear. One of three essentials." },
+            { id: "connection", label: "Connection", cat: "principle", book: "B", ch: "Intro", desc: "Enabling participants to know each other as persons and work as peers. Second of three essentials." },
+            { id: "equity", label: "Equity", cat: "principle", book: "B", ch: "Intro", desc: "Ensuring contribution and connection are inclusive and fair. Third of three essentials." },
+            { id: "vertical_facilitation", label: "Vertical\nFacilitation", cat: "tool", book: "B", ch: "Ch 2", desc: "Conventional top-down directing. Provides clarity but can constrain if overused." },
+            { id: "horizontal_facilitation", label: "Horizontal\nFacilitation", cat: "tool", book: "B", ch: "Ch 2", desc: "Conventional alongside-accompanying. Democratic but can produce wandering if overused." },
+            { id: "ten_moves", label: "Ten Moves\n(5 Pairs)", cat: "tool", book: "B", ch: "Ch 4", desc: "Five pairs of outer moves the facilitator cycles between." },
+            { id: "advocating_inquiring", label: "Advocating &\nInquiring", cat: "tool", book: "B", ch: "Ch 6", desc: "Cycling between stating positions and asking genuine questions." },
+            { id: "concluding_advancing", label: "Concluding &\nAdvancing", cat: "tool", book: "B", ch: "Ch 7", desc: "Cycling between reaching agreements and moving forward without full agreement." },
+            { id: "mapping_discovering", label: "Mapping &\nDiscovering", cat: "tool", book: "B", ch: "Ch 8", desc: "Cycling between planning a route and discovering adjustments along the way." },
+            { id: "directing_accompanying", label: "Directing &\nAccompanying", cat: "tool", book: "B", ch: "Ch 9", desc: "Cycling between telling participants what to do and supporting them to find their own way." },
+            { id: "outside_inside", label: "Standing Outside\n& Inside", cat: "tool", book: "B", ch: "Ch 10", desc: "Cycling between observing the group objectively and participating as a member." },
+            { id: "diverging_emerging_converging", label: "Diverge > Emerge\n> Converge", cat: "process_step", book: "B", ch: "Ch 7", desc: "Three-phase creative process: contribute perspectives, let them cook, then draw conclusions." },
+            { id: "negative_capability", label: "Negative\nCapability (Keats)", cat: "mindset", book: "B", ch: "Ch 7", desc: "Being capable of staying in uncertainties, mysteries, and doubts without rushing to resolution." },
+            { id: "power_love_justice", label: "Power, Love\n& Justice", cat: "principle", book: "B", ch: "Conclusion", desc: "The three fundamental drives. Justice is the structure that enables power and love to work together." },
+            { id: "incompleteness", label: "Starting with\nIncompleteness", cat: "mindset", book: "B", ch: "Core", desc: "Accepting that collaboration begins imperfect and incomplete. Perfection is the enemy of progress." },
+            { id: "imperfection", label: "Embracing\nImperfection", cat: "mindset", book: "B", ch: "Core", desc: "Working with what you have rather than waiting for ideal conditions." },
+            { id: "social_labs", label: "Social Labs", cat: "tool", book: "B", ch: "Methods", desc: "Multi-stakeholder platforms for addressing complex social challenges through prototyping and iteration." },
+            { id: "scenario_planning", label: "Transformative\nScenario Planning", cat: "tool", book: "B", ch: "Methods", desc: "Creating multiple stories about possible futures to help stakeholders prepare and act together." },
+            { id: "dissent_as_fuel", label: "Dissent as\nCreative Fuel", cat: "principle", book: "B", ch: "Methods", desc: "Disagreement is not a problem to solve but a resource to harness for innovation." },
+
+            // BOOK C
+            { id: "theory_u", label: "Theory U", cat: "principle", book: "C", ch: "Module 1", desc: "Framework for learning from the emerging future rather than the past. The U-shaped journey of transformation." },
+            { id: "iceberg_model", label: "Iceberg Model", cat: "principle", book: "C", ch: "Module 1", desc: "Beneath visible events lie structures, paradigms of thought, and deeper sources. Address root causes." },
+            { id: "downloading_c", label: "Downloading\n(Level 1)", cat: "process_step", book: "C", ch: "Module 1", desc: "Listening from habit. The first and lowest level of listening." },
+            { id: "seeing", label: "Seeing\n(Open Mind)", cat: "process_step", book: "C", ch: "Module 1", desc: "Factual listening: noticing what differs from expectations. Requires suspending Voice of Judgment." },
+            { id: "sensing", label: "Sensing\n(Open Heart)", cat: "process_step", book: "C", ch: "Module 2", desc: "Empathic listening from another's perspective. Requires suspending Voice of Cynicism." },
+            { id: "presencing_c", label: "Presencing\n(Open Will)", cat: "process_step", book: "C", ch: "Module 3", desc: "Generative listening connecting to the emerging future. Requires suspending Voice of Fear. Bottom of the U." },
+            { id: "crystallizing", label: "Crystallizing", cat: "process_step", book: "C", ch: "Module 3", desc: "Clarifying vision and intention from the deepest source of knowing. First step ascending the U." },
+            { id: "prototyping_c", label: "Prototyping", cat: "process_step", book: "C", ch: "Module 4", desc: "Exploring the future by doing. Creating living examples to test and learn. A plan is not a prototype." },
+            { id: "co_evolving", label: "Co-Evolving", cat: "process_step", book: "C", ch: "Module 5", desc: "Iterating prototypes and growing the ecosystem. The seed needs quality soil in the social field." },
+            { id: "co_initiating", label: "Co-Initiating", cat: "process_step", book: "C", ch: "Module 1", desc: "Sparking common intention among diverse core players. Building the initial circle." },
+            { id: "co_sensing", label: "Co-Sensing", cat: "process_step", book: "C", ch: "Module 2", desc: "Going to the edges of the system, listening with minds and hearts wide open." },
+            { id: "co_creating", label: "Co-Creating", label: "Co-Creating", cat: "process_step", book: "C", ch: "Module 4", desc: "Building prototypes together, exploring the future by doing." },
+            { id: "absencing", label: "Absencing\n(Anti-Pattern)", cat: "mindset", book: "C", ch: "Module 3", desc: "The opposite of presencing: disconnecting from source, reverting to old patterns." },
+            { id: "voj", label: "Voice of\nJudgment", cat: "mindset", book: "C", ch: "Module 1", desc: "The inner enemy that blocks Open Mind. Prevents seeing reality freshly." },
+            { id: "voc", label: "Voice of\nCynicism", cat: "mindset", book: "C", ch: "Module 2", desc: "The inner enemy that blocks Open Heart. Prevents genuine empathic connection." },
+            { id: "vof", label: "Voice of\nFear", cat: "mindset", book: "C", ch: "Module 3", desc: "The inner enemy that blocks Open Will. Prevents letting go and letting come." },
+            { id: "four_levels_listening", label: "Four Levels\nof Listening", cat: "tool", book: "C", ch: "Module 1", desc: "Downloading > Factual > Empathic > Generative. Each level from a different inner place." },
+            { id: "case_clinic", label: "Case Clinic", cat: "tool", book: "C", ch: "Module 1", desc: "Peer coaching process using U-process principles." },
+            { id: "empathy_walk", label: "Empathy Walk", cat: "tool", book: "C", ch: "Module 1", desc: "Spending time with someone very different from yourself to develop empathy." },
+            { id: "sensing_journey", label: "Sensing Journey", cat: "tool", book: "C", ch: "Module 2", desc: "Immersive visits to stakeholders and contexts to see the system from the edges." },
+            { id: "stakeholder_interviews", label: "Stakeholder\nInterviews", cat: "tool", book: "C", ch: "Module 2", desc: "Seeing your work from stakeholders' perspective." },
+            { id: "social_presencing_theater", label: "Social Presencing\nTheater", cat: "tool", book: "C", ch: "Module 2", desc: "Body-based awareness practice. Includes 20-Minute Dance, Stuck Exercise." },
+            { id: "three_d_mapping", label: "3D Mapping", cat: "tool", book: "C", ch: "Module 4", desc: "Physical modeling tool: build current reality with objects, then reshape toward emerging future." },
+            { id: "journaling", label: "Journaling\nPractice", cat: "tool", book: "C", ch: "Module 3", desc: "Field of the Future journaling. Connecting to source through reflective writing." },
+            { id: "ego_to_eco", label: "Ego-system to\nEco-system", cat: "principle", book: "C", ch: "Module 1", desc: "The fundamental shift from self-centered to whole-system awareness." },
+            { id: "four_distractions", label: "Four\nDistractions", cat: "mindset", book: "C", ch: "Module 5", desc: "Past, Future, Them, Me - four ways we lose presence." },
         ];
 
-        const edges = [
-            { from: "enemyfying", to: "scapegoating" }, { from: "enemyfying", to: "step_into_game" },
-            { from: "power_vs_love", to: "asserting_engaging" }, { from: "downloading_a", to: "debating" },
-            { from: "debating", to: "dialoguing_a" }, { from: "dialoguing_a", to: "presencing_a" },
-            { from: "transformative_facilitation", to: "removing_obstacles" },
-            { from: "removing_obstacles", to: "contribution" }, { from: "removing_obstacles", to: "connection" },
-            { from: "ten_moves", to: "advocating_inquiring" }, { from: "ten_moves", to: "concluding_advancing" },
-            { from: "theory_u", to: "downloading_c" }, { from: "seeing", to: "sensing" },
-            { from: "sensing", to: "presencing_c" }, { from: "voj", to: "seeing" },
-            { from: "voc", to: "sensing" }, { from: "vof", to: "presencing_c" },
-            // Cross-links (orange)
-            { from: "enemyfying", to: "absencing", color: "#f59e0b", width: 2 },
-            { from: "presencing_a", to: "presencing_c", color: "#f59e0b", width: 2 },
-            { from: "social_labs", to: "co_creating", color: "#f59e0b", width: 2 },
-            { from: "removing_obstacles", to: "theory_u", color: "#f59e0b", width: 2 },
+        const rawEdges = [
+            // Book A internal
+            { from: "enemyfying", to: "scapegoating", label: "Causes" },
+            { from: "enemyfying", to: "step_into_game", label: "Overcome by" },
+            { from: "power_vs_love", to: "asserting_engaging", label: "Expressed as" },
+            { from: "stretch_collab", to: "exit_adapt_force", label: "Replaces" },
+            { from: "downloading_a", to: "debating", label: "Level 1>2" },
+            { from: "debating", to: "dialoguing_a", label: "Level 2>3" },
+            { from: "dialoguing_a", to: "presencing_a", label: "Level 3>4" },
+            { from: "stretch_collab", to: "experimentation_a", label: "Requires" },
+            { from: "holon", to: "power_vs_love", label: "Enables" },
+            { from: "step_into_game", to: "week_program", label: "Practiced via" },
+
+            // Book B internal
+            { from: "transformative_facilitation", to: "removing_obstacles", label: "Core principle" },
+            { from: "removing_obstacles", to: "contribution", label: "Enables" },
+            { from: "removing_obstacles", to: "connection", label: "Enables" },
+            { from: "removing_obstacles", to: "equity", label: "Enables" },
+            { from: "transformative_facilitation", to: "vertical_facilitation", label: "Cycles with" },
+            { from: "transformative_facilitation", to: "horizontal_facilitation", label: "Cycles with" },
+            { from: "ten_moves", to: "advocating_inquiring", label: "Pair 1" },
+            { from: "ten_moves", to: "concluding_advancing", label: "Pair 2" },
+            { from: "ten_moves", to: "mapping_discovering", label: "Pair 3" },
+            { from: "ten_moves", to: "directing_accompanying", label: "Pair 4" },
+            { from: "ten_moves", to: "outside_inside", label: "Pair 5" },
+            { from: "concluding_advancing", to: "diverging_emerging_converging", label: "Uses" },
+            { from: "concluding_advancing", to: "negative_capability", label: "Requires" },
+            { from: "contribution", to: "power_love_justice", label: "Driven by Power" },
+            { from: "connection", to: "power_love_justice", label: "Driven by Love" },
+            { from: "equity", to: "power_love_justice", label: "Driven by Justice" },
+            { from: "incompleteness", to: "imperfection", label: "Complementary" },
+            { from: "social_labs", to: "dissent_as_fuel", label: "Embraces" },
+            { from: "social_labs", to: "scenario_planning", label: "Uses" },
+
+            // Book C internal
+            { from: "theory_u", to: "iceberg_model", label: "Root causes via" },
+            { from: "downloading_c", to: "seeing", label: "Level 1>2" },
+            { from: "seeing", to: "sensing", label: "Level 2>3" },
+            { from: "sensing", to: "presencing_c", label: "Level 3>4" },
+            { from: "presencing_c", to: "crystallizing", label: "Ascending U" },
+            { from: "crystallizing", to: "prototyping_c", label: "Vision>Action" },
+            { from: "prototyping_c", to: "co_evolving", label: "Iterate & grow" },
+            { from: "co_initiating", to: "co_sensing", label: "Co- rhythm" },
+            { from: "co_sensing", to: "co_creating", label: "Co- rhythm" },
+            { from: "co_creating", to: "co_evolving", label: "Co- rhythm" },
+            { from: "absencing", to: "downloading_c", label: "Reverts to" },
+            { from: "voj", to: "seeing", label: "Blocks" },
+            { from: "voc", to: "sensing", label: "Blocks" },
+            { from: "vof", to: "presencing_c", label: "Blocks" },
+            { from: "four_levels_listening", to: "downloading_c", label: "Contains" },
+            { from: "four_levels_listening", to: "seeing", label: "Contains" },
+            { from: "four_levels_listening", to: "sensing", label: "Contains" },
+            { from: "four_levels_listening", to: "presencing_c", label: "Contains" },
+            { from: "co_sensing", to: "sensing_journey", label: "Uses" },
+            { from: "co_sensing", to: "stakeholder_interviews", label: "Uses" },
+            { from: "co_sensing", to: "empathy_walk", label: "Uses" },
+            { from: "co_creating", to: "three_d_mapping", label: "Uses" },
+            { from: "presencing_c", to: "journaling", label: "Supported by" },
+            { from: "presencing_c", to: "social_presencing_theater", label: "Supported by" },
+            { from: "ego_to_eco", to: "theory_u", label: "Meta-narrative" },
+            { from: "four_distractions", to: "absencing", label: "Leads to" },
+
+            // Cross-book
+            { from: "enemyfying", to: "incompleteness", label: "Overcome by accepting", cross: true },
+            { from: "stretch_collab", to: "social_labs", label: "Executed through", cross: true },
+            { from: "power_vs_love", to: "power_love_justice", label: "Extended w/ Justice", cross: true },
+            { from: "experimentation_a", to: "mapping_discovering", label: "Structured as", cross: true },
+            { from: "step_into_game", to: "outside_inside", label: "Facilitated by", cross: true },
+            { from: "dialoguing_a", to: "sensing", label: "Deepened by", cross: true },
+            { from: "presencing_a", to: "presencing_c", label: "Same concept, full", cross: true },
+            { from: "downloading_a", to: "downloading_c", label: "Same concept, full", cross: true },
+            { from: "asserting_engaging", to: "co_sensing", label: "Balanced during", cross: true },
+            { from: "step_into_game", to: "co_initiating", label: "First action of", cross: true },
+            { from: "enemyfying", to: "absencing", label: "A form of", cross: true },
+            { from: "scapegoating", to: "voj", label: "Manifests as", cross: true },
+            { from: "removing_obstacles", to: "theory_u", label: "Framework for", cross: true },
+            { from: "social_labs", to: "co_creating", label: "Structured by", cross: true },
+            { from: "dissent_as_fuel", to: "absencing", label: "Prevents", cross: true },
+            { from: "diverging_emerging_converging", to: "theory_u", label: "Mirrors U shape", cross: true },
+            { from: "scenario_planning", to: "sensing_journey", label: "Complement", cross: true },
+            { from: "incompleteness", to: "prototyping_c", label: "Enables early", cross: true },
+            { from: "negative_capability", to: "presencing_c", label: "Required for", cross: true },
+            { from: "connection", to: "co_sensing", label: "Achieved through", cross: true },
+            { from: "contribution", to: "co_creating", label: "Expressed in", cross: true },
         ];
 
-        const visNodes = new vis.DataSet(nodes.map(n => ({
-            id: n.id, label: n.label, shape: 'dot', size: 20, 
-            color: { background: n.book === 'A' ? '#ef4444' : n.book === 'B' ? '#3b82f6' : '#22c55e', border: '#0f172a' },
-            font: { color: '#e2e8f0', size: 14, strokeWidth: 3, strokeColor: '#0f172a' },
-            _book: n.book, _desc: n.desc, _orig: n.label, _meta: n.ch
+        // ============================================================
+        // BUILD VIS.JS DATA
+        // ============================================================
+        const connCount = {};
+        rawEdges.forEach(e => {
+            connCount[e.from] = (connCount[e.from] || 0) + 1;
+            connCount[e.to] = (connCount[e.to] || 0) + 1;
+        });
+
+        const visNodes = new vis.DataSet(rawNodes.map(n => {
+            const count = connCount[n.id] || 0;
+            const sz = 18 + count * 4;
+            return {
+                id: n.id,
+                label: n.label,
+                color: {
+                    background: BOOK_COLORS[n.book],
+                    border: BOOK_COLORS[n.book],
+                    highlight: { background: '#f59e0b', border: '#f59e0b' },
+                    hover: { background: BOOK_COLORS[n.book], border: '#f59e0b' }
+                },
+                shape: CATEGORY_SHAPES[n.cat] || 'dot',
+                size: sz,
+                font: {
+                    color: '#e2e8f0',
+                    size: 14,
+                    face: 'Inter, sans-serif',
+                    strokeWidth: 3,
+                    strokeColor: '#0f172a',
+                    multi: true
+                },
+                borderWidth: 2,
+                borderWidthSelected: 4,
+                _book: n.book,
+                _cat: n.cat,
+                _ch: n.ch,
+                _desc: n.desc,
+                _origLabel: n.label
+            };
+        }));
+
+        const visEdges = new vis.DataSet(rawEdges.map((e, i) => ({
+            id: 'e' + i,
+            from: e.from,
+            to: e.to,
+            label: e.label,
+            color: {
+                color: e.cross ? '#f59e0b' : 'rgba(100,116,139,0.35)',
+                highlight: '#f59e0b',
+                hover: e.cross ? '#fbbf24' : 'rgba(100,116,139,0.6)',
+            },
+            width: e.cross ? 2.5 : 1,
+            arrows: { to: { enabled: true, scaleFactor: 0.6 } },
+            font: {
+                color: e.cross ? '#fbbf24' : '#475569',
+                size: 10,
+                strokeWidth: 2,
+                strokeColor: '#0f172a',
+                align: 'middle'
+            },
+            smooth: { type: 'continuous' },
+            _cross: !!e.cross
         })));
 
-        const visEdges = new vis.DataSet(edges.map(e => ({
-            from: e.from, to: e.to, color: e.color || '#475569', width: e.width || 1, arrows: 'to'
-        })));
+        const allNodeIds = visNodes.getIds();
+        const allEdgeData = visEdges.get();
 
         const container = document.getElementById('network-canvas');
-        const network = new vis.Network(container, { nodes: visNodes, edges: visEdges }, {
-            physics: { barnesHut: { gravitationalConstant: -10000, springLength: 150, damping: 0.3 }, stabilization: { iterations: 150 } },
-            interaction: { hover: true, tooltipDelay: 100 }
-        });
+        const data = { nodes: visNodes, edges: visEdges };
 
-        network.on('stabilized', () => network.setOptions({ physics: { enabled: false } }));
-        network.on('click', (p) => {
-            if (p.nodes.length) {
-                const n = visNodes.get(p.nodes[0]);
-                document.getElementById('info-title').innerText = n._orig;
-                document.getElementById('info-desc').innerText = n._desc;
-                document.getElementById('info-meta').innerText = n._meta;
-                document.getElementById('info-panel').classList.add('visible');
-            } else {
-                document.getElementById('info-panel').classList.remove('visible');
+        const options = {
+            physics: {
+                barnesHut: {
+                    gravitationalConstant: -12000,
+                    centralGravity: 0.35,
+                    springLength: 200,
+                    springConstant: 0.02,
+                    damping: 0.3,
+                    avoidOverlap: 0.5
+                },
+                stabilization: {
+                    enabled: true,
+                    iterations: 300,
+                    updateInterval: 25
+                },
+                maxVelocity: 50,
+                minVelocity: 0.5
+            },
+            interaction: {
+                hover: true,
+                tooltipDelay: 150,
+                navigationButtons: false,
+                keyboard: { enabled: true },
+                multiselect: false,
+                hoverConnectedEdges: true,
+                selectConnectedEdges: true
+            },
+            nodes: {
+                borderWidth: 2,
+                borderWidthSelected: 4,
+                chosen: {
+                    node: function (values, id, selected, hovering) {
+                        if (hovering) {
+                            values.borderColor = '#f59e0b';
+                            values.borderWidth = 3;
+                            values.size *= 1.15;
+                        }
+                    },
+                    label: function (values, id, selected, hovering) {
+                        if (hovering || selected) {
+                            values.size = 16;
+                            values.color = '#ffffff';
+                        }
+                    }
+                },
+                scaling: {
+                    label: {
+                        enabled: true,
+                        min: 11,
+                        max: 18,
+                        maxVisible: 22,
+                        drawThreshold: 6
+                    }
+                }
+            },
+            edges: {
+                smooth: { type: 'continuous' },
+                chosen: {
+                    edge: function (values, id, selected, hovering) {
+                        if (hovering || selected) {
+                            values.width = 3;
+                            values.color = '#f59e0b';
+                        }
+                    },
+                    label: function (values, id, selected, hovering) {
+                        if (hovering || selected) {
+                            values.color = '#fbbf24';
+                            values.size = 12;
+                        }
+                    }
+                },
+                scaling: {
+                    label: {
+                        enabled: true,
+                        min: 8,
+                        max: 12,
+                        maxVisible: 16,
+                        drawThreshold: 9
+                    }
+                }
+            },
+            layout: {
+                improvedLayout: true
+            }
+        };
+
+        const network = window.network = new vis.Network(container, data, options);
+
+        let hintShown = true;
+        network.once('zoom', () => {
+            if (hintShown) {
+                document.getElementById('zoom-hint').classList.add('hidden');
+                hintShown = false;
             }
         });
 
-        function toggleSidebar() { document.querySelector('.app').classList.toggle('sidebar-collapsed'); setTimeout(() => network.redraw(), 500); }
-        function filterBy(book, btn) {
+        network.on('click', function (params) {
+            if (params.nodes.length > 0) {
+                const nodeId = params.nodes[0];
+                if (network.isCluster(nodeId)) {
+                    network.openCluster(nodeId, {
+                        releaseFunction: function (clusterPos, containedNodesPos) {
+                            const keys = Object.keys(containedNodesPos);
+                            const angle = (2 * Math.PI) / keys.length;
+                            keys.forEach((id, i) => {
+                                containedNodesPos[id].x = clusterPos.x + 120 * Math.cos(angle * i);
+                                containedNodesPos[id].y = clusterPos.y + 120 * Math.sin(angle * i);
+                            });
+                            return containedNodesPos;
+                        }
+                    });
+                    updateStats();
+                    return;
+                }
+                showInfoPanel(nodeId);
+            } else {
+                hideInfoPanel();
+            }
+        });
+
+        network.on('doubleClick', function (params) {
+            if (params.nodes.length > 0) {
+                const nodeId = params.nodes[0];
+                if (!network.isCluster(nodeId)) {
+                    network.focus(nodeId, {
+                        scale: 1.5,
+                        animation: { duration: 800, easingFunction: 'easeInOutQuad' }
+                    });
+                }
+            }
+        });
+
+        function showInfoPanel(nodeId) {
+            const node = visNodes.get(nodeId);
+            if (!node) return;
+
+            const panel = document.getElementById('info-panel');
+            document.getElementById('info-title').textContent = node._origLabel.replace(/\n/g, ' ');
+            document.getElementById('info-meta').textContent =
+                BOOK_NAMES[node._book] + ' | ' + node._ch + ' | ' + node._cat;
+            document.getElementById('info-desc').textContent = node._desc;
+
+            const connected = network.getConnectedNodes(nodeId);
+            let html = '<b>Connected to:</b><br>';
+            connected.forEach(cid => {
+                const cnode = visNodes.get(cid);
+                if (cnode) {
+                    html += '<a onclick="focusNode(\'' + cid + '\')">' +
+                        cnode._origLabel.replace(/\n/g, ' ') + '</a><br>';
+                }
+            });
+            document.getElementById('info-connections').innerHTML = html;
+
+            panel.classList.add('visible');
+            document.getElementById('info-title').style.color = BOOK_COLORS[node._book];
+        }
+
+        function hideInfoPanel() {
+            document.getElementById('info-panel').classList.remove('visible');
+        }
+
+        function focusNode(id) {
+            network.selectNodes([id]);
+            network.focus(id, {
+                scale: 1.3,
+                animation: { duration: 600, easingFunction: 'easeInOutQuad' }
+            });
+            showInfoPanel(id);
+        }
+
+        function searchNodes(query) {
+            query = query.toLowerCase().trim();
+            if (!query) {
+                visNodes.forEach(n => {
+                    visNodes.update({ id: n.id, opacity: 1, font: { ...n.font, color: '#e2e8f0' } });
+                });
+                return;
+            }
+
+            visNodes.forEach(n => {
+                const match = n._origLabel.toLowerCase().includes(query) ||
+                    n._desc.toLowerCase().includes(query) ||
+                    n._cat.toLowerCase().includes(query);
+                visNodes.update({
+                    id: n.id,
+                    opacity: match ? 1 : 0.15,
+                    font: { ...n.font, color: match ? '#ffffff' : 'rgba(226,232,240,0.15)' }
+                });
+            });
+        }
+
+        let activeFilter = 'all';
+
+        function filterBy(filter, btn) {
+            activeFilter = filter;
+            // Enable physics so nodes spread out after filtering
             network.setOptions({ physics: { enabled: true } });
-            visNodes.forEach(n => {
-                visNodes.update({ id: n.id, hidden: book !== 'all' && n._book !== book });
-            });
-            if(btn) { document.querySelectorAll('.topbar-controls .btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); }
-        }
-        function searchNodes(q) {
-            q = q.toLowerCase();
-            visNodes.forEach(n => {
-                const match = n._orig.toLowerCase().includes(q) || n._desc.toLowerCase().includes(q);
-                visNodes.update({ id: n.id, opacity: q ? (match ? 1 : 0.1) : 1 });
-            });
-        }
-        let isClustered = false;
-        function toggleClustering() {
-            if (!isClustered) {
-                ['A', 'B', 'C'].forEach(b => network.cluster({
-                    joinCondition: (n) => n._book === b,
-                    clusterNodeProperties: { label: b + ' Book', size: 40, color: '#f59e0b' }
-                }));
-            } else {
-                ['A', 'B', 'C'].forEach(b => { try { network.openCluster(b + ' Book'); } catch(e){} });
+
+            if (btn) {
+                document.querySelectorAll('.topbar-controls .btn:not(.cluster-btn)').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
             }
-            isClustered = !isClustered;
+
+            if (isClustered) {
+                unclusterAll();
+                document.getElementById('cluster-toggle').classList.remove('active');
+                isClustered = false;
+            }
+
+            if (filter === 'all') {
+                const allNodes = rawNodes.map(n => n.id);
+                const existing = visNodes.getIds();
+                rawNodes.forEach(n => {
+                    if (!existing.includes(n.id)) {
+                        const count = connCount[n.id] || 0;
+                        visNodes.add({
+                            id: n.id, label: n.label,
+                            color: {
+                                background: BOOK_COLORS[n.book], border: BOOK_COLORS[n.book],
+                                highlight: { background: '#f59e0b', border: '#f59e0b' },
+                                hover: { background: BOOK_COLORS[n.book], border: '#f59e0b' }
+                            },
+                            shape: CATEGORY_SHAPES[n.cat] || 'dot',
+                            size: 18 + count * 4,
+                            font: { color: '#e2e8f0', size: 14, face: 'Inter, sans-serif', strokeWidth: 3, strokeColor: '#0f172a', multi: true },
+                            borderWidth: 2, borderWidthSelected: 4,
+                            _book: n.book, _cat: n.cat, _ch: n.ch, _desc: n.desc, _origLabel: n.label
+                        });
+                    }
+                });
+
+                const existingEdges = visEdges.getIds();
+                allEdgeData.forEach(e => {
+                    if (!existingEdges.includes(e.id)) visEdges.add(e);
+                });
+
+                existing.forEach(id => { if (!allNodes.includes(id)) visNodes.remove(id); });
+
+            } else if (filter === 'cross') {
+                const crossEdges = allEdgeData.filter(e => e._cross);
+                const crossNodeIds = new Set();
+                crossEdges.forEach(e => { crossNodeIds.add(e.from); crossNodeIds.add(e.to); });
+
+                visNodes.getIds().forEach(id => {
+                    if (!crossNodeIds.has(id)) visNodes.remove(id);
+                });
+                visEdges.getIds().forEach(id => {
+                    const e = visEdges.get(id);
+                    if (!e._cross) visEdges.remove(id);
+                });
+                rawNodes.filter(n => crossNodeIds.has(n.id)).forEach(n => {
+                    if (!visNodes.get(n.id)) {
+                        const count = connCount[n.id] || 0;
+                        visNodes.add({
+                            id: n.id, label: n.label,
+                            color: {
+                                background: BOOK_COLORS[n.book], border: BOOK_COLORS[n.book],
+                                highlight: { background: '#f59e0b', border: '#f59e0b' },
+                                hover: { background: BOOK_COLORS[n.book], border: '#f59e0b' }
+                            },
+                            shape: CATEGORY_SHAPES[n.cat] || 'dot',
+                            size: 18 + count * 4,
+                            font: { color: '#e2e8f0', size: 14, face: 'Inter, sans-serif', strokeWidth: 3, strokeColor: '#0f172a', multi: true },
+                            borderWidth: 2, borderWidthSelected: 4,
+                            _book: n.book, _cat: n.cat, _ch: n.ch, _desc: n.desc, _origLabel: n.label
+                        });
+                    }
+                });
+                crossEdges.forEach(e => { if (!visEdges.get(e.id)) visEdges.add(e); });
+
+            } else {
+                const bookNodes = rawNodes.filter(n => n.book === filter).map(n => n.id);
+                const bookNodeSet = new Set(bookNodes);
+                const bookEdges = allEdgeData.filter(e => bookNodeSet.has(e.from) && bookNodeSet.has(e.to));
+
+                visNodes.getIds().forEach(id => {
+                    if (!bookNodeSet.has(id)) visNodes.remove(id);
+                });
+                visEdges.getIds().forEach(id => {
+                    const e = visEdges.get(id);
+                    if (!bookNodeSet.has(e.from) || !bookNodeSet.has(e.to)) visEdges.remove(id);
+                });
+                rawNodes.filter(n => n.book === filter).forEach(n => {
+                    if (!visNodes.get(n.id)) {
+                        const count = connCount[n.id] || 0;
+                        visNodes.add({
+                            id: n.id, label: n.label,
+                            color: {
+                                background: BOOK_COLORS[n.book], border: BOOK_COLORS[n.book],
+                                highlight: { background: '#f59e0b', border: '#f59e0b' },
+                                hover: { background: BOOK_COLORS[n.book], border: '#f59e0b' }
+                            },
+                            shape: CATEGORY_SHAPES[n.cat] || 'dot',
+                            size: 18 + count * 4,
+                            font: { color: '#e2e8f0', size: 14, face: 'Inter, sans-serif', strokeWidth: 3, strokeColor: '#0f172a', multi: true },
+                            borderWidth: 2, borderWidthSelected: 4,
+                            _book: n.book, _cat: n.cat, _ch: n.ch, _desc: n.desc, _origLabel: n.label
+                        });
+                    }
+                });
+                bookEdges.forEach(e => { if (!visEdges.get(e.id)) visEdges.add(e); });
+            }
+
+            updateStats();
+            network.fit({ animation: true });
         }
+
+        let isClustered = false;
+
+        function toggleClustering() {
+            const btn = document.getElementById('cluster-toggle');
+            if (isClustered) {
+                unclusterAll();
+                btn.classList.remove('active');
+                btn.textContent = 'Cluster by Book';
+                isClustered = false;
+            } else {
+                if (activeFilter !== 'all') {
+                    filterBy('all', document.querySelector('.topbar-controls .btn'));
+                }
+                clusterByBook();
+                btn.classList.add('active');
+                btn.textContent = 'Uncluster';
+                isClustered = true;
+            }
+            updateStats();
+        }
+
+        function clusterByBook() {
+            ['A', 'B', 'C'].forEach(book => {
+                const clusterOpts = {
+                    joinCondition: function (nodeOptions) {
+                        return nodeOptions._book === book;
+                    },
+                    clusterNodeProperties: {
+                        id: 'cluster_' + book,
+                        label: BOOK_NAMES[book] + '\n(' + rawNodes.filter(n => n.book === book).length + ' concepts)',
+                        shape: 'dot',
+                        size: 50,
+                        color: {
+                            background: BOOK_COLORS[book],
+                            border: BOOK_COLORS[book],
+                            highlight: { background: '#f59e0b', border: '#f59e0b' },
+                        },
+                        font: {
+                            color: '#ffffff',
+                            size: 18,
+                            face: 'Inter, sans-serif',
+                            strokeWidth: 4,
+                            strokeColor: '#0f172a',
+                            multi: true,
+                            bold: { color: '#ffffff', size: 18 }
+                        },
+                        borderWidth: 4,
+                        mass: 3,
+                    },
+                    clusterEdgeProperties: {
+                        color: { color: '#f59e0b' },
+                        width: 3,
+                        label: '',
+                        smooth: { type: 'continuous' }
+                    }
+                };
+                network.cluster(clusterOpts);
+            });
+
+            network.fit({ animation: true });
+        }
+
+        function unclusterAll() {
+            ['A', 'B', 'C'].forEach(book => {
+                const clusterId = 'cluster_' + book;
+                try {
+                    if (network.isCluster(clusterId)) {
+                        network.openCluster(clusterId, {
+                            releaseFunction: function (clusterPos, containedNodesPos) {
+                                const keys = Object.keys(containedNodesPos);
+                                const angle = (2 * Math.PI) / keys.length;
+                                const radius = 100 + keys.length * 10;
+                                keys.forEach((id, i) => {
+                                    containedNodesPos[id].x = clusterPos.x + radius * Math.cos(angle * i);
+                                    containedNodesPos[id].y = clusterPos.y + radius * Math.sin(angle * i);
+                                });
+                                return containedNodesPos;
+                            }
+                        });
+                    }
+                } catch (e) { }
+            });
+        }
+
+        function updateStats() {
+            const nodeCount = visNodes.length;
+            const edgeCount = visEdges.length;
+            document.getElementById('stat-nodes').textContent = nodeCount;
+            document.getElementById('stat-edges').textContent = edgeCount;
+        }
+
+        function toggleSidebar() {
+            const app = document.querySelector('.app');
+            app.classList.toggle('sidebar-collapsed');
+
+            // Adjust network size after animation
+            setTimeout(() => {
+                network.setSize('100%', '100%');
+                network.redraw();
+            }, 450);
+        }
+
+        network.on('stabilized', function () {
+            // Once stable, freeze the graph to save CPU and stop "lag"
+            network.setOptions({ physics: { enabled: false } });
+            network.fit({ animation: { duration: 1000, easingFunction: 'easeInOutQuad' } });
+        });
+
+        // Re-enable physics temporarily when dragging to allow smooth repositioning
+        network.on("dragStart", function () {
+            network.setOptions({ physics: { enabled: true } });
+        });
+        network.on("dragEnd", function () {
+            // Small timeout to let it settle then freeze again
+            setTimeout(() => network.setOptions({ physics: { enabled: false } }), 1000);
+        });
+
     </script>
 </body>
+
 </html>
