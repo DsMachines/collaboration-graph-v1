@@ -833,6 +833,9 @@
 
         function filterBy(filter, btn) {
             activeFilter = filter;
+            // Enable physics so nodes spread out after filtering
+            network.setOptions({ physics: { enabled: true } });
+
             if (btn) {
                 document.querySelectorAll('.topbar-controls .btn:not(.cluster-btn)').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
@@ -1044,10 +1047,10 @@
             }, 450);
         }
 
-        network.once('stabilized', function () {
-            network.fit({ animation: { duration: 1000, easingFunction: 'easeInOutQuad' } });
-            // STOP physics after stabilization to reduce lag/CPU usage
+        network.on('stabilized', function () {
+            // Once stable, freeze the graph to save CPU and stop "lag"
             network.setOptions({ physics: { enabled: false } });
+            network.fit({ animation: { duration: 1000, easingFunction: 'easeInOutQuad' } });
         });
 
         // Re-enable physics temporarily when dragging to allow smooth repositioning
