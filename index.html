@@ -27,7 +27,8 @@
         .app {
             display: grid;
             grid-template-columns: 280px 1fr;
-            grid-template-rows: 56px 1fr;
+            grid-template-rows: 80px 1fr;
+            /* Increased for better top spacing */
             height: 100vh;
         }
 
@@ -39,7 +40,8 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 24px;
+            padding: 10px 24px 0 24px;
+            /* Added 10px top padding */
             gap: 16px;
             z-index: 10;
         }
@@ -1006,6 +1008,17 @@
 
         network.once('stabilized', function () {
             network.fit({ animation: { duration: 1000, easingFunction: 'easeInOutQuad' } });
+            // STOP physics after stabilization to reduce lag/CPU usage
+            network.setOptions({ physics: { enabled: false } });
+        });
+
+        // Re-enable physics temporarily when dragging to allow smooth repositioning
+        network.on("dragStart", function () {
+            network.setOptions({ physics: { enabled: true } });
+        });
+        network.on("dragEnd", function () {
+            // Small timeout to let it settle then freeze again
+            setTimeout(() => network.setOptions({ physics: { enabled: false } }), 1000);
         });
 
     </script>
