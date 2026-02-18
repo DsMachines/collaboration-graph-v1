@@ -27,13 +27,8 @@
         .app {
             display: grid;
             grid-template-columns: 280px 1fr;
-            grid-template-rows: 80px 1fr;
+            grid-template-rows: 56px 1fr;
             height: 100vh;
-            transition: grid-template-columns 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .app.sidebar-collapsed {
-            grid-template-columns: 0px 1fr;
         }
 
         /* ---- TOP BAR ---- */
@@ -44,8 +39,7 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 10px 24px 0 24px;
-            /* Added 10px top padding */
+            padding: 0 24px;
             gap: 16px;
             z-index: 10;
         }
@@ -123,18 +117,6 @@
             border-right: 1px solid rgba(100, 116, 139, 0.15);
             overflow-y: auto;
             padding: 16px;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            width: 280px;
-            opacity: 1;
-        }
-
-        .sidebar-collapsed .sidebar {
-            width: 0;
-            padding-left: 0;
-            padding-right: 0;
-            opacity: 0;
-            border-right-color: transparent;
-            pointer-events: none;
         }
 
         .sidebar h3 {
@@ -300,18 +282,7 @@
     <div class="app">
         <!-- TOP BAR -->
         <div class="topbar">
-            <div style="display: flex; align-items: center; gap: 15px;">
-                <button class="btn" style="padding: 8px; display: flex; align-items: center; justify-content: center;"
-                    onclick="toggleSidebar()" title="Toggle Legend Sidebar">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                        stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="3" y1="12" x2="21" y2="12"></line>
-                        <line x1="3" y1="6" x2="21" y2="6"></line>
-                        <line x1="3" y1="18" x2="21" y2="18"></line>
-                    </svg>
-                </button>
-                <div class="topbar-title">Collaboration Course - Knowledge Graph</div>
-            </div>
+            <div class="topbar-title">Collaboration Course - Knowledge Graph</div>
             <div class="topbar-controls">
                 <input type="text" id="search-input" placeholder="Search concepts..." oninput="searchNodes(this.value)">
                 <button class="btn active" onclick="filterBy('all', this)">All</button>
@@ -833,9 +804,6 @@
 
         function filterBy(filter, btn) {
             activeFilter = filter;
-            // Enable physics so nodes spread out after filtering
-            network.setOptions({ physics: { enabled: true } });
-
             if (btn) {
                 document.querySelectorAll('.topbar-controls .btn:not(.cluster-btn)').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
@@ -1036,30 +1004,8 @@
             document.getElementById('stat-edges').textContent = edgeCount;
         }
 
-        function toggleSidebar() {
-            const app = document.querySelector('.app');
-            app.classList.toggle('sidebar-collapsed');
-
-            // Adjust network size after animation
-            setTimeout(() => {
-                network.setSize('100%', '100%');
-                network.redraw();
-            }, 450);
-        }
-
-        network.on('stabilized', function () {
-            // Once stable, freeze the graph to save CPU and stop "lag"
-            network.setOptions({ physics: { enabled: false } });
+        network.once('stabilized', function () {
             network.fit({ animation: { duration: 1000, easingFunction: 'easeInOutQuad' } });
-        });
-
-        // Re-enable physics temporarily when dragging to allow smooth repositioning
-        network.on("dragStart", function () {
-            network.setOptions({ physics: { enabled: true } });
-        });
-        network.on("dragEnd", function () {
-            // Small timeout to let it settle then freeze again
-            setTimeout(() => network.setOptions({ physics: { enabled: false } }), 1000);
         });
 
     </script>
